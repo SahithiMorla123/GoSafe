@@ -34,4 +34,3 @@ This app is more than just an SOS button. It includes a suite of intelligent fea
 4.  Connect a physical Android device or set up an emulator.
 5.  Run the app.
 
-*(Note: To test the SMS functionality, you will need to run the app on a physical device with a SIM card and grant the necessary SMS and Location permissions.)*
