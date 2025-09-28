@@ -4,18 +4,17 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
+    android:padding="24dp"
+    android:background="#1C1C1E"
     tools:context=".ContactActivity">
 
     <TextView
+        style="@style/TitleText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Add Emergency Contact"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="16dp"/>
+        android:text="Emergency Contacts"
+        android:layout_marginBottom="24dp"/>
 
-    <!-- Input section -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -28,39 +27,32 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:hint="Enter phone number"
+            android:textColorHint="@color/disabled_gray"
+            android:textColor="@color/white"
             android:inputType="phone" />
 
+        <!-- THIS BUTTON WAS MISSING ITS HEIGHT. THE 'style' ATTRIBUTE FIXES IT. -->
         <Button
             android:id="@+id/btnAddContact"
+            style="@style/AppButton.Secondary"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Add" />
+
     </LinearLayout>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Saved Contacts"
-        android:textSize="18sp"
-        android:layout_marginBottom="8dp"/>
-
-    <!-- List of contacts -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvContacts"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:background="#F1F1F1"
         tools:listitem="@layout/contact_item" />
 
-    <!-- Save button -->
     <Button
         android:id="@+id/btnSaveSelection"
+        style="@style/AppButton.Main"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="Save And Return"
-        android:textSize="18sp"
-        android:padding="12dp"/>
-
+        android:text="Save &amp; Return" />
 </LinearLayout>

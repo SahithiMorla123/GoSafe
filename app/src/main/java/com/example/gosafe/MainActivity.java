@@ -1,168 +1,92 @@
-package com.example.gosafe; // Or your package name, e.g., com.example.gosafe
+package com.example.gosafe;
 
 import android.Manifest;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
+import android.os.CountDownTimer;
+import android.os.Handler;
 import android.telephony.SmsManager;
-import android.util.Log;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
-
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
-
 import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
 
-    // UI elements
     private Button btnSOS, btnContacts, btnSensors;
-
-    // Location client to get GPS coordinates
+    private EditText etTimerMinutes;
+    private TextView tvCountdown;
+    private Button btnStartTimer, btnCancelTimer;
+    private Button btnFakeCall, btnDisguiseApp, btnRestoreApp;
     private FusedLocationProviderClient fusedLocationClient;
-
-    // This list will hold the phone numbers of emergency contacts
     private ArrayList<String> emergencyContacts = new ArrayList<>();
+    private CountDownTimer countDownTimer;
 
-    // Modern way to handle asking for multiple permissions (Location, SMS)
-    private final ActivityResultLauncher<String[]> requestPermissionLauncher =
-            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), permissions -> {
-                boolean allGranted = true;
-                for (Boolean isGranted : permissions.values()) {
-                    if (!isGranted) {
-                        allGranted = false;
-                        break;
-                    }
-                }
-
-                if (allGranted) {
-                    // If permissions were granted, try sending the SOS again
-                    sendSOS();
-                } else {
-                    // If permissions were denied, show a message to the user
-                    Toast.makeText(this, "SOS requires Location and SMS permissions to function.", Toast.LENGTH_LONG).show();
-                }
-            });
-
-    // Modern way to get the result back from ContactActivity
-    private final ActivityResultLauncher<Intent> contactPickerLauncher = registerForActivityResult(
-            new ActivityResultContracts.StartActivityForResult(),
-            result -> {
-                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                    // Get the list of selected numbers returned from ContactActivity
-                    ArrayList<String> selectedNumbers = result.getData().getStringArrayListExtra("selected_numbers");
-                    if (selectedNumbers != null && !selectedNumbers.isEmpty()) {
-                        emergencyContacts.clear(); // Clear the old list
-                        emergencyContacts.addAll(selectedNumbers); // Add the new ones
-                        Toast.makeText(this, emergencyContacts.size() + " contacts saved.", Toast.LENGTH_LONG).show();
-                    }
-                }
-            });
+    private final ActivityResultLauncher<String[]> requestPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), permissions -> { /* ... */ });
+    private final ActivityResultLauncher<Intent> contactPickerLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> { if (result.getResultCode() == RESULT_OK && result.getData() != null) { ArrayList<String> selectedNumbers = result.getData().getStringArrayListExtra("selected_numbers"); if (selectedNumbers != null && !selectedNumbers.isEmpty()) { emergencyContacts.clear(); emergencyContacts.addAll(selectedNumbers); Toast.makeText(this, "Contacts saved: " + emergencyContacts.size(), Toast.LENGTH_SHORT).show(); } } });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Link the variables to the buttons in the layout file
+        // This initialization order is now safe because all buttons exist in the XML
         btnSOS = findViewById(R.id.btnSOS);
         btnContacts = findViewById(R.id.btnContacts);
         btnSensors = findViewById(R.id.btnSensors);
+        etTimerMinutes = findViewById(R.id.etTimerMinutes);
+        tvCountdown = findViewById(R.id.tvCountdown);
+        btnStartTimer = findViewById(R.id.btnStartTimer);
+        btnCancelTimer = findViewById(R.id.btnCancelTimer);
+        btnFakeCall = findViewById(R.id.btnFakeCall);
+        btnDisguiseApp = findViewById(R.id.btnDisguiseApp);
+        btnRestoreApp = findViewById(R.id.btnRestoreApp);
 
-        // Initialize the location client
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
-        // --- Set up what happens when each button is clicked ---
-
-        btnSOS.setOnClickListener(v -> {
-            // Check if we already have the necessary permissions
-            if (hasPermissions()) {
-                sendSOS(); // If yes, send the SOS
-            } else {
-                requestPermissions(); // If no, ask for them
-            }
-        });
-
-        btnContacts.setOnClickListener(v -> {
-            // Create an intent to open the ContactActivity
-            Intent intent = new Intent(MainActivity.this, ContactActivity.class);
-            contactPickerLauncher.launch(intent); // Launch it and wait for a result
-        });
-
-        btnSensors.setOnClickListener(v -> {
-            // Create an intent to open the SensorActivity
-            Intent intent = new Intent(MainActivity.this, SensorActivity.class);
-            startActivity(intent);
-        });
+        // All listeners are set here
+        btnSOS.setOnClickListener(v -> { if (hasPermissions()) sendSOS(); else requestPermissions(); });
+        btnContacts.setOnClickListener(v -> { Intent intent = new Intent(this, ContactActivity.class); contactPickerLauncher.launch(intent); });
+        btnSensors.setOnClickListener(v -> { Intent intent = new Intent(this, SensorActivity.class); startActivity(intent); });
+        btnStartTimer.setOnClickListener(v -> startTimer());
+        btnCancelTimer.setOnClickListener(v -> cancelTimer());
+        btnFakeCall.setOnClickListener(v -> { Toast.makeText(this, "Fake call in 15s.", Toast.LENGTH_SHORT).show(); new Handler().postDelayed(() -> { Intent intent = new Intent(this, FakeCallActivity.class); startActivity(intent); }, 15000); });
+        btnDisguiseApp.setOnClickListener(v -> disguiseApp());
+        btnRestoreApp.setOnClickListener(v -> restoreAppIcon());
     }
 
-    /**
-     * Checks if both Location and SMS permissions have been granted by the user.
-     */
-    private boolean hasPermissions() {
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED &&
-                ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED;
+    private void disguiseApp() {
+        ComponentName defaultAlias = new ComponentName(this, "com.example.gosafe.GoSafeLauncher");
+        ComponentName calculatorAlias = new ComponentName(this, "com.example.gosafe.CalculatorLauncher");
+        getPackageManager().setComponentEnabledSetting(defaultAlias, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+        getPackageManager().setComponentEnabledSetting(calculatorAlias, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP);
+        Toast.makeText(this, "App disguised. Relaunch from 'Calculator'.", Toast.LENGTH_LONG).show();
     }
 
-    /**
-     * Launches the system dialog to ask the user for permissions.
-     */
-    private void requestPermissions() {
-        requestPermissionLauncher.launch(new String[]{
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.SEND_SMS
-        });
+    private void restoreAppIcon() {
+        ComponentName defaultAlias = new ComponentName(this, "com.example.gosafe.GoSafeLauncher");
+        ComponentName calculatorAlias = new ComponentName(this, "com.example.gosafe.CalculatorLauncher");
+        getPackageManager().setComponentEnabledSetting(defaultAlias, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP);
+        getPackageManager().setComponentEnabledSetting(calculatorAlias, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+        Toast.makeText(this, "App icon restored.", Toast.LENGTH_LONG).show();
     }
 
-    /**
-     * The main SOS function. It gets the location and sends the SMS messages.
-     */
-    private void sendSOS() {
-        // First, check if any contacts have been added.
-        if (emergencyContacts.isEmpty()) {
-            Toast.makeText(this, "Please add emergency contacts first.", Toast.LENGTH_LONG).show();
-            return;
-        }
-
-        // We must check for permissions here again, as the system requires it.
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(this, "Location permission is required to send SOS.", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        // Get the last known location from the phone's GPS
-        fusedLocationClient.getLastLocation()
-                .addOnSuccessListener(this, location -> {
-                    if (location != null) {
-                        // We found the location
-                        double latitude = location.getLatitude();
-                        double longitude = location.getLongitude();
-
-                        String message = "EMERGENCY! I need help. My current location is: " +
-                                "https://maps.google.com/?q=" + latitude + "," + longitude;
-
-                        // Send the SMS to every contact in our list
-                        try {
-                            SmsManager smsManager = SmsManager.getDefault();
-                            for (String number : emergencyContacts) {
-                                smsManager.sendTextMessage(number, null, message, null, null);
-                            }
-                            Toast.makeText(this, "SOS message sent to " + emergencyContacts.size() + " contacts.", Toast.LENGTH_LONG).show();
-                        } catch (Exception e) {
-                            Toast.makeText(this, "Failed to send SMS. Check permissions.", Toast.LENGTH_SHORT).show();
-                            Log.e("SOS_ERROR", "SMS sending failed", e);
-                        }
-                    } else {
-                        // We could not get the location
-                        Toast.makeText(this, "Could not get your location. Please enable GPS and try again.", Toast.LENGTH_LONG).show();
-                    }
-                });
-    }
+    // --- All other methods (sendSOS, etc.) ---
+    @Override protected void onNewIntent(Intent intent) { super.onNewIntent(intent); if (intent != null && intent.getBooleanExtra("TRIGGER_SOS", false)) { Toast.makeText(this, "SOS triggered by shake!", Toast.LENGTH_LONG).show(); new Handler().postDelayed(() -> { if (hasPermissions()) sendSOS(); else requestPermissions(); }, 500); } }
+    private boolean hasPermissions() { return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED; }
+    private void requestPermissions() { requestPermissionLauncher.launch(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.SEND_SMS}); }
+    private void sendSOS() { if (emergencyContacts.isEmpty()) { Toast.makeText(this, "No contacts. Add contacts first.", Toast.LENGTH_LONG).show(); return; } if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) { return; } fusedLocationClient.getLastLocation().addOnSuccessListener(this, location -> { if (location != null) { String message = "EMERGENCY! Location: https://maps.google.com/?q=" + location.getLatitude() + "," + location.getLongitude(); try { SmsManager smsManager = SmsManager.getDefault(); for (String number : emergencyContacts) { smsManager.sendTextMessage(number, null, message, null, null); } Toast.makeText(this, "SOS sent.", Toast.LENGTH_LONG).show(); } catch (Exception e) { Toast.makeText(this, "Failed to send SMS.", Toast.LENGTH_SHORT).show(); } } else { Toast.makeText(this, "Could not get location.", Toast.LENGTH_LONG).show(); } }); }
+    private void startTimer() { String minutesStr = etTimerMinutes.getText().toString(); if (minutesStr.isEmpty()) { Toast.makeText(this, "Enter minutes.", Toast.LENGTH_SHORT).show(); return; } long minutes = Long.parseLong(minutesStr); countDownTimer = new CountDownTimer(minutes * 60 * 1000, 1000) { public void onTick(long millis) { tvCountdown.setText(String.format("%02d:%02d", (millis/1000)/60, (millis/1000)%60)); } public void onFinish() { sendSOS(); resetTimerUI(); }}.start(); btnStartTimer.setEnabled(false); btnCancelTimer.setEnabled(true); etTimerMinutes.setEnabled(false); }
+    private void cancelTimer() { if (countDownTimer != null) { countDownTimer.cancel(); Toast.makeText(this, "Timer cancelled.", Toast.LENGTH_SHORT).show(); resetTimerUI(); } }
+    private void resetTimerUI() { tvCountdown.setText("00:00"); btnStartTimer.setEnabled(true); btnCancelTimer.setEnabled(false); etTimerMinutes.setEnabled(true); etTimerMinutes.setText(""); }
 }

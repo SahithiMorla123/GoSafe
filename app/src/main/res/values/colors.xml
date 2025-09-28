@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
+    <color name="primaryBlue">#3F51B5</color>
+    <color name="darkBlue">#303F9F</color>
+    <color name="accentTeal">#00BCD4</color>
+
+
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="disabled_gray">#808080</color>
 </resources>
